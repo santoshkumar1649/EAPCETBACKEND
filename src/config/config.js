@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../../.env") });
 
 // Programmatic fallback for Render runtime to ensure binaries are read from node_modules
-if (process.env.RENDER === "true" || !process.env.PLAYWRIGHT_BROWSERS_PATH) {
+if (process.env.RENDER === "true" || process.env.NODE_ENV === "production") {
   process.env.PLAYWRIGHT_BROWSERS_PATH = "0";
 }
 

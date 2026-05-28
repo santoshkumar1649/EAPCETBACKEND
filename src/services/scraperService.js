@@ -49,7 +49,7 @@ export const scrapeResult = async (student) => {
           "--disable-extensions"
         ],
       });
-      console.log(`✅ [Scraper] Browser launched successfully. Executable path: "${browser.executablePath()}"`);
+      console.log(`✅ [Scraper] Browser launched successfully. Executable path: "${chromium.executablePath()}"`);
       break; // Success!
     } catch (err) {
       console.warn(`⚠️ [Scraper] Browser launch attempt ${attempt}/${launchAttempts} failed: ${err.message}`);
