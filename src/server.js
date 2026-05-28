@@ -3,6 +3,7 @@ import cors from "cors";
 import CONFIG from "./config/config.js";
 import resultRoutes from "./routes/resultRoutes.js";
 import errorHandler from "./middleware/errorHandler.js";
+import { startKeepAlive } from "./services/keepAliveService.js";
 
 const app = express();
 
@@ -52,6 +53,8 @@ app.use(errorHandler);
 // 6. Listen to Server
 app.listen(CONFIG.PORT, () => {
   console.log(`🚀 [Server] Running in ${CONFIG.NODE_ENV} mode on port ${CONFIG.PORT}`);
+  // Start Keep-Alive Self-pinging Service (Vitals Check active)
+  startKeepAlive();
 });
 
 export default app;
