@@ -10,26 +10,30 @@ const saveFailureArtifacts = async (page) => {
     await page.screenshot({ path: `failure_screenshot_${timestamp}.png`, fullPage: false });
     const htmlContent = await page.content();
     fs.writeFileSync(`failure_dom_${timestamp}.html`, htmlContent, "utf-8");
+    console.log(`📸 [Scraper-Artifacts] Saved diagnostic screenshot & HTML DOM snapshot for timestamp: ${timestamp}`);
   } catch (err) {
     console.error("❌ [Scraper-Artifacts] Failed to save diagnostics:", err.message);
   }
 };
 
 /**
- * Robust Playwright Scraper Service
+ * Robust Playwright Scraper Service (Playwright 1.40.0 Compatible)
  * @param {Object} student - { regno, hallticket }
  * @returns {Promise<Object>} - Scraped result payload
  */
 export const scrapeResult = async (student) => {
   console.log(`🎬 [Scraper] Starting result extraction for RegNo: ${student.regno}`);
+  console.log(`ℹ️ [Scraper-Config] PLAYWRIGHT_BROWSERS_PATH set to: "${process.env.PLAYWRIGHT_BROWSERS_PATH}"`);
 
   let browser = null;
+  let context = null;
   let page = null;
   
   // 1. Retry Browser Launch (up to 3 times) to handle transient memory spikes on Render
   let launchAttempts = 3;
   for (let attempt = 1; attempt <= launchAttempts; attempt++) {
     try {
+      console.log(`🚀 [Scraper] Launching Chromium (Attempt ${attempt}/${launchAttempts})...`);
       browser = await chromium.launch({
         headless: true, // Always headless in production
         slowMo: CONFIG.SCRAPER.SLOWMO || 0,
@@ -37,14 +41,15 @@ export const scrapeResult = async (student) => {
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage", // Write shared memory to /tmp instead of /dev/shm
+          "--disable-dev-shm-usage", // Write shared memory to /tmp instead of /dev/shm (avoids Docker/Render crashes)
           "--disable-gpu",            // Disable hardware graphics acceleration
           "--no-first-run",
           "--no-zygote",
-          ...(process.platform !== "win32" ? ["--single-process"] : []), // Fit browser processes into one process on Linux (Saves ~100MB RAM, crashes on Windows)
+          ...(process.platform !== "win32" ? ["--single-process"] : []), // RAM-saver on Linux, causes Windows to crash
           "--disable-extensions"
         ],
       });
+      console.log(`✅ [Scraper] Browser launched successfully. Executable path: "${browser.executablePath()}"`);
       break; // Success!
     } catch (err) {
       console.warn(`⚠️ [Scraper] Browser launch attempt ${attempt}/${launchAttempts} failed: ${err.message}`);
@@ -52,15 +57,17 @@ export const scrapeResult = async (student) => {
         try { await browser.close(); } catch (e) {}
         browser = null;
       }
-      if (attempt === launchAttempts) throw new Error(`Browser launch failed after ${launchAttempts} attempts: ${err.message}`);
+      if (attempt === launchAttempts) {
+        throw new Error(`Browser launch failed after ${launchAttempts} attempts. Detail: ${err.message}`);
+      }
       await new Promise((resolve) => setTimeout(resolve, 3000)); // Wait 3s before retry
     }
   }
 
   try {
-    const context = await browser.newContext({
+    context = await browser.newContext({
       viewport: null,
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       extraHTTPHeaders: {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
@@ -78,13 +85,13 @@ export const scrapeResult = async (student) => {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         console.log(`🌐 [Scraper] Navigating to EAPCET Homepage (Attempt ${attempt}/3)...`);
-        await page.goto(homepageUrl, { waitUntil: "networkidle", timeout: 25000 });
+        await page.goto(homepageUrl, { waitUntil: "domcontentloaded", timeout: 25000 });
         navigated = true;
         break;
       } catch (err) {
         console.warn(`⚠️ [Scraper] Homepage navigation attempt ${attempt} failed: ${err.message}`);
         if (attempt === 3) throw err;
-        await page.waitForTimeout(3000);
+        await page.waitForTimeout(3500);
       }
     }
 
@@ -92,17 +99,17 @@ export const scrapeResult = async (student) => {
     try {
       console.log("🔍 [Scraper] Searching for Response Sheets link...");
       const linkSelector = 'a[href*="ResponseSheet"], a:has-text("Response Sheets")';
-      await page.waitForSelector(linkSelector, { state: "visible", timeout: 8000 });
+      await page.waitForSelector(linkSelector, { state: "visible", timeout: 10000 });
       await Promise.all([
-        page.waitForNavigation({ waitUntil: "networkidle", timeout: 20000 }),
+        page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 20000 }),
         page.locator(linkSelector).first().click({ force: true })
       ]);
     } catch (navError) {
       console.warn("⚠️ [Scraper] Natural link navigation failed, performing direct deep-link fallback.", navError.message);
-      await page.goto(responseSheetUrl, { waitUntil: "networkidle", timeout: timeout });
+      await page.goto(responseSheetUrl, { waitUntil: "domcontentloaded", timeout: timeout });
     }
 
-    // Check if details are already loaded
+    // Check if details are already loaded (session cache)
     const hasQuestionsTable = await page.locator("table.questionRowTbl").count() > 0;
     const hasParticipantInfo = await page.locator("text=Hall Ticket Number").count() > 0;
 
@@ -134,7 +141,7 @@ export const scrapeResult = async (student) => {
 
       console.log("🚀 [Scraper] Submitting EAPCET form...");
       await Promise.all([
-        page.waitForNavigation({ waitUntil: "networkidle", timeout: timeout }),
+        page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: timeout }),
         button.click({ force: true })
       ]);
     }
@@ -227,9 +234,12 @@ export const scrapeResult = async (student) => {
       error: error.message || "Failed to parse EAPCET result response sheet."
     };
   } finally {
+    // 3. Graceful cleanup and browser closure
+    if (page) { try { await page.close(); } catch (e) {} }
+    if (context) { try { await context.close(); } catch (e) {} }
     if (browser) {
       await browser.close();
-      console.log("🔌 [Scraper] Browser closed cleanly.");
+      console.log("🔌 [Scraper] Browser context closed cleanly.");
     }
   }
 };
