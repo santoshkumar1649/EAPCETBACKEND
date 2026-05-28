@@ -1,0 +1,21 @@
+# Dependency Directories
+node_modules/
+jspm_packages/
+
+# Environmental variables & local configs
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Scraper diagnostic screenshots & failure dumps
+*.png
+*.html
+*.log
+logs/
+npm-debug.log*
+
+# System Files
+.DS_Store
+Thumbs.db
