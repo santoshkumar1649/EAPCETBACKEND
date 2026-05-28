@@ -41,7 +41,7 @@ export const scrapeResult = async (student) => {
           "--disable-gpu",            // Disable hardware graphics acceleration
           "--no-first-run",
           "--no-zygote",
-          "--single-process",         // Fit browser processes into one process (Saves ~100MB RAM)
+          ...(process.platform !== "win32" ? ["--single-process"] : []), // Fit browser processes into one process on Linux (Saves ~100MB RAM, crashes on Windows)
           "--disable-extensions"
         ],
       });
