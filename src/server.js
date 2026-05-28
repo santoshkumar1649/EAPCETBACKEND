@@ -7,13 +7,15 @@ import { startKeepAlive } from "./services/keepAliveService.js";
 
 const app = express();
 
-// 1. Middleware
-const allowedOrigins = CONFIG.FRONTEND_URL ? CONFIG.FRONTEND_URL.split(",") : ["http://localhost:5173", "http://localhost:5174"];
+// 1. CORS Middleware configured for Vercel/localhost development
+const allowedOrigins = CONFIG.FRONTEND_URL 
+  ? CONFIG.FRONTEND_URL.split(",") 
+  : ["http://localhost:5173", "http://localhost:5174"];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like curl, postman, or direct mobile queries)
+      // Allow requests with no origin (like server-to-server or curl)
       if (!origin) return callback(null, true);
       
       const isLocalhost = origin.startsWith("http://localhost:") || 
@@ -30,30 +32,35 @@ app.use(
     credentials: true,
   })
 );
+
 app.use(express.json());
 
-// 2. Base / Healthcheck Route
-app.get("/", (req, res) => {
-  res.status(200).send("EAPCET Result Extractor API Running");
+// 2. Health check route (used by Render to monitor active service)
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "healthy", timestamp: new Date() });
 });
 
-// 3. API Routes
+app.get("/", (req, res) => {
+  res.status(200).send("AP EAPCET Result Extractor API is active and running.");
+});
+
+// 3. API Routing
 app.use("/api", resultRoutes);
 
-// 4. Fallback for unhandled routes
+// 4. Fallback for unhandled paths
 app.use((req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);
   error.statusCode = 404;
   next(error);
 });
 
-// 5. Global Error Handling Middleware
+// 5. Global Exception Catcher
 app.use(errorHandler);
 
-// 6. Listen to Server
+// 6. Bind to Port & Start Keep-Alive Cron
 app.listen(CONFIG.PORT, () => {
   console.log(`🚀 [Server] Running in ${CONFIG.NODE_ENV} mode on port ${CONFIG.PORT}`);
-  // Start Keep-Alive Self-pinging Service (Vitals Check active)
+  // Start the anti-idling Cron self-pings
   startKeepAlive();
 });
 

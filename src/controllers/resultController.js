@@ -15,10 +15,12 @@ export const getResult = async (req, res, next) => {
       });
     }
 
-    // 2. Call the scraper service
+    console.log(`📡 [Controller] Received result request. RegNo: ${regno}, HT: ${hallticket}`);
+
+    // 2. Execute scraper service
     const response = await scrapeResult({ regno, hallticket });
 
-    // 3. Return results
+    // 3. Return structured JSON payload
     if (response.success) {
       return res.status(200).json(response);
     } else {
@@ -28,7 +30,7 @@ export const getResult = async (req, res, next) => {
       });
     }
   } catch (error) {
-    // Pass exception down to the global error handler
-    next(error);
+    console.error("🔴 [Controller] Unhandled error encountered:", error.message);
+    next(error); // Forward to global Express error handler
   }
 };

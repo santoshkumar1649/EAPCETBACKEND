@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: eapcet-backend-api
+    env: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: NODE_ENV
+        value: production
+      - key: SCRAPER_HEADLESS
+        value: "true"
+      - key: SCRAPER_SLOWMO
+        value: "0"
+      - key: SCRAPER_TIMEOUT
+        value: "60000"
+      - key: FRONTEND_URL
+        value: "https://your-vercel-frontend-domain.vercel.app"
