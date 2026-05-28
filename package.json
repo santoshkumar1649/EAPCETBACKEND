@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "postinstall": "npx playwright install --with-deps chromium"
+    "postinstall": "npx playwright install --with-deps chromium",
+    "build": "npx playwright install --with-deps chromium"
   },
   "keywords": [],
   "author": "",
