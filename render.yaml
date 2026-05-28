@@ -17,3 +17,5 @@ services:
         value: "60000"
       - key: FRONTEND_URL
         value: "https://your-vercel-frontend-domain.vercel.app"
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "/opt/render/project/src/pw-browsers"
