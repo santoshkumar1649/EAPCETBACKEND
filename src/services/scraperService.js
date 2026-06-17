@@ -76,6 +76,16 @@ export const scrapeResult = async (student) => {
     });
 
     page = await context.newPage();
+
+    // Catch JavaScript alert() dialogs — the portal uses alert() for "details not found"
+    // errors instead of inline HTML, so innerText() would miss them without this handler.
+    let portalAlertMessage = null;
+    page.on("dialog", async (dialog) => {
+      portalAlertMessage = dialog.message();
+      console.log(`⚠️ [Scraper] Portal alert: "${portalAlertMessage}"`);
+      await dialog.accept();
+    });
+
     const homepageUrl = "https://cets.apsche.ap.gov.in/EAPCET/";
     const responseSheetUrl = "https://cets.apsche.ap.gov.in/EAPCET/Eapcet/EAPCET_ResponseSheet.aspx";
     const timeout = CONFIG.SCRAPER.TIMEOUT || 60000;
@@ -146,8 +156,15 @@ export const scrapeResult = async (student) => {
       ]);
     }
 
+    // Check for portal rejection — both inline HTML text and JS alert() variants.
+    if (portalAlertMessage) {
+      const msg = portalAlertMessage.toLowerCase();
+      if (msg.includes("not found") || msg.includes("invalid") || msg.includes("details")) {
+        throw new Error(`Invalid student credentials. Portal: "${portalAlertMessage}"`);
+      }
+    }
     const resultPageBody = await page.locator("body").innerText();
-    if (resultPageBody.includes("Invalid details") || resultPageBody.includes("Record Not Found")) {
+    if (resultPageBody.includes("Invalid details") || resultPageBody.includes("Record Not Found") || resultPageBody.includes("details not found")) {
       throw new Error("Invalid student credentials. No EAPCET result sheet record found.");
     }
 
@@ -170,12 +187,13 @@ export const scrapeResult = async (student) => {
 
     // Single-pass browser context parser
     console.log("⚡ [Scraper] Parsing question sheets in browser context...");
-    const { correctAnswers, wrongAnswers, totalQuestions } = await page.evaluate(() => {
+    const { correctAnswers, wrongAnswers, totalQuestions, questions } = await page.evaluate(() => {
       const questionTables = document.querySelectorAll("td.rw");
       let correct = 0;
       let wrong = 0;
+      const questions = [];
 
-      questionTables.forEach((question) => {
+      questionTables.forEach((question, index) => {
         let chosenOption = "";
         const menuTableTds = question.querySelectorAll("table.menu-tbl td.bold");
         if (menuTableTds.length > 0) {
@@ -190,17 +208,25 @@ export const scrapeResult = async (student) => {
           if (match) correctOption = match[1];
         }
 
-        if (chosenOption && chosenOption === correctOption) {
+        let status;
+        if (!chosenOption) {
+          status = "Unattempted";
+        } else if (chosenOption === correctOption) {
+          status = "Correct";
           correct++;
         } else {
+          status = "Wrong";
           wrong++;
         }
+
+        questions.push({ qNo: index + 1, chosenOption, correctOption, status });
       });
 
       return {
         correctAnswers: correct,
         wrongAnswers: wrong,
-        totalQuestions: questionTables.length
+        totalQuestions: questionTables.length,
+        questions
       };
     });
 
@@ -222,7 +248,8 @@ export const scrapeResult = async (student) => {
         correctAnswers,
         wrongAnswers,
         totalMarks,
-        percentage
+        percentage,
+        questions
       }
     };
 

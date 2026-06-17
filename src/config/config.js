@@ -21,6 +21,11 @@ export const CONFIG = {
     SLOWMO: parseInt(process.env.SCRAPER_SLOWMO || "0", 10),
     TIMEOUT: parseInt(process.env.SCRAPER_TIMEOUT || "60000", 10),
   },
+  EXCEL: {
+    DATA_DIR: process.env.EXCEL_DATA_DIR || path.join(__dirname, "../data"),
+    WORKBOOK_PATH:
+      process.env.EXCEL_WORKBOOK_PATH || path.join(__dirname, "../data/workbook.xlsx"),
+  },
 };
 
 export default CONFIG;

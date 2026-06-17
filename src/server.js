@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import CONFIG from "./config/config.js";
 import resultRoutes from "./routes/resultRoutes.js";
+import excelRoutes from "./routes/excelRoutes.js";
+import studentRoutes from "./routes/studentRoutes.js";
 import errorHandler from "./middleware/errorHandler.js";
 import { startKeepAlive } from "./services/keepAliveService.js";
 
@@ -46,6 +48,8 @@ app.get("/", (req, res) => {
 
 // 3. API Routing
 app.use("/api", resultRoutes);
+app.use("/api/excel", excelRoutes);
+app.use("/api", studentRoutes);
 
 // 4. Fallback for unhandled paths
 app.use((req, res, next) => {

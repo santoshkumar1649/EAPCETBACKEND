@@ -11,10 +11,8 @@ export const errorHandler = (err, req, res, next) => {
 
   res.status(statusCode).json({
     success: false,
-    error: {
-      message,
-      ...(CONFIG.NODE_ENV === "development" && { stack: err.stack }),
-    },
+    error: message,
+    ...(CONFIG.NODE_ENV === "development" && { stack: err.stack }),
   });
 };
 
